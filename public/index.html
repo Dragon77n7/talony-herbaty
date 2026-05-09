@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Talony Herbaty — Giełda</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root {
+  --bg:#0d0f14; --bg2:#131720; --bg3:#1a1f2e; --bg4:#222839;
+  --border:#2a3045; --accent:#00c896; --accent2:#0ea5e9;
+  --red:#ef4444; --green:#22c55e; --gold:#f59e0b;
+  --text:#e2e8f0; --muted:#64748b; --muted2:#94a3b8;
+  --font:'Space Grotesk',sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow-x:hidden;}
+::-webkit-scrollbar{width:6px;} ::-webkit-scrollbar-track{background:var(--bg2);} ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+#app{display:flex;flex-direction:column;min-height:100vh;}
+
+/* topbar */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:52px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:2px;color:var(--accent);}
+.logo svg{width:22px;height:22px;} .logo span{color:var(--muted2);font-weight:400;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.nav-user{font-size:13px;color:var(--muted2);font-family:var(--mono);}
+.nav-user strong{color:var(--accent);}
+
+/* buttons */
+.btn{padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font);font-size:13px;font-weight:600;transition:all .15s;letter-spacing:.3px;}
+.btn-primary{background:var(--accent);color:#000;} .btn-primary:hover{background:#00dfa8;}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);} .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:var(--red);color:#fff;} .btn-danger:hover{background:#dc2626;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-gold{background:var(--gold);color:#000;} .btn-gold:hover{background:#d97706;}
+
+/* layout */
+#main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%;}
+
+/* stats */
+#stats-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;font-family:var(--mono);}
+.stat-value{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--text);}
+.stat-value.green{color:var(--green);} .stat-value.gold{color:var(--gold);}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* chart */
+#chart-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:24px;overflow:hidden;}
+.chart-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+.chart-title{font-size:13px;font-weight:600;font-family:var(--mono);color:var(--muted2);letter-spacing:1px;}
+.chart-title strong{color:var(--text);font-size:15px;}
+.chart-header-right{display:flex;align-items:center;gap:12px;}
+
+/* live indicator */
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,200,150,.4);}50%{opacity:.8;box-shadow:0 0 0 5px rgba(0,200,150,0);}}
+.live-label{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:1px;display:flex;align-items:center;gap:6px;}
+.countdown{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;}
+
+.gran-btns{display:flex;gap:4px;}
+.gran-btn{padding:4px 12px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--mono);transition:all .15s;}
+.gran-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
+.gran-btn:hover:not(.active){border-color:var(--accent2);color:var(--accent2);}
+
+canvas#chart{width:100%;display:block;}
+#ohlc-legend{display:flex;gap:20px;padding:8px 20px 12px;font-family:var(--mono);font-size:12px;color:var(--muted);flex-wrap:wrap;}
+.ohlc-o strong{color:var(--text);} .ohlc-h strong{color:var(--green);} .ohlc-l strong{color:var(--red);} .ohlc-c strong{color:var(--accent);}
+
+/* crosshair tooltip */
+#chart-tooltip{position:absolute;pointer-events:none;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;z-index:10;display:none;}
+#chart-wrap{position:relative;}
+
+/* cols */
+#cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+@media(max-width:800px){#cols{grid-template-columns:1fr;}}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.panel-head{padding:14px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);}
+.panel-body{padding:20px;}
+
+/* form */
+.form-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.form-row label{font-size:12px;color:var(--muted);font-family:var(--mono);}
+.form-row input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:9px 12px;font-size:13px;font-family:var(--font);outline:none;transition:border-color .15s;}
+.form-row input:focus{border-color:var(--accent);}
+.form-row input::placeholder{color:var(--muted);}
+.form-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.msg{padding:10px 14px;border-radius:6px;font-size:13px;margin-top:10px;display:none;}
+.msg.ok{background:#052e1c;border:1px solid var(--green);color:var(--green);display:block;}
+.msg.err{background:#2e0505;border:1px solid var(--red);color:var(--red);display:block;}
+
+/* my tokens */
+#my-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:24px;}
+.my-big{font-family:var(--mono);font-size:48px;font-weight:700;color:var(--accent);line-height:1;}
+.my-sub{color:var(--muted2);font-size:14px;margin:6px 0 16px;}
+.progress-bar-wrap{background:var(--bg3);border-radius:4px;height:8px;overflow:hidden;margin:4px 0 6px;}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .6s ease;}
+.progress-label{font-size:12px;color:var(--muted);font-family:var(--mono);}
+
+/* admin */
+#admin-section{margin-bottom:24px;}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.admin-grid{grid-template-columns:1fr;}}
+#users-table-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--bg3);}
+th{padding:12px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);font-weight:500;}
+td{padding:11px 16px;border-top:1px solid var(--border);font-family:var(--mono);}
+tr:hover td{background:var(--bg3);}
+.td-name{color:var(--text);font-weight:600;} .td-tokens{color:var(--accent);font-weight:700;}
+.td-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.delta-input{width:70px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 8px;font-size:12px;font-family:var(--mono);}
+
+/* log */
+#log-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px;}
+.log-row{padding:9px 16px;border-top:1px solid var(--border);font-size:12px;font-family:var(--mono);display:flex;gap:12px;flex-wrap:wrap;}
+.log-row:first-child{border-top:none;}
+.log-delta.pos{color:var(--green);} .log-delta.neg{color:var(--red);}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:999;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:32px;width:380px;max-width:95vw;transform:translateY(20px);transition:transform .2s;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal h2{font-size:18px;margin-bottom:20px;font-weight:700;}
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.modal-tab{padding:8px 18px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;}
+.modal-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* ticker */
+#ticker{background:var(--bg2);border-top:1px solid var(--border);padding:6px 0;overflow:hidden;white-space:nowrap;}
+.ticker-inner{display:inline-block;animation:ticker 25s linear infinite;}
+.ticker-inner span{margin:0 32px;font-family:var(--mono);font-size:12px;color:var(--muted2);}
+.ticker-inner span strong{color:var(--accent);}
+@keyframes ticker{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header id="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
+    TALONY<span>/</span>HERBATY
+  </div>
+  <div class="topbar-right">
+    <div class="nav-user hidden" id="nav-user-info">Witaj, <strong id="nav-username"></strong></div>
+    <button class="btn btn-outline btn-sm hidden" id="btn-logout">Wyloguj</button>
+    <button class="btn btn-primary btn-sm" id="btn-open-modal">Zaloguj / Rejestracja</button>
+  </div>
+</header>
+
+<div id="ticker"><div class="ticker-inner" id="ticker-inner"><span>HRB/PLN — ładowanie...</span></div></div>
+
+<div id="main">
+
+  <div id="stats-strip">
+    <div class="stat-card"><div class="stat-label">Łączna pula talonów</div><div class="stat-value green" id="stat-total">—</div><div class="stat-sub">sztuk w obiegu</div></div>
+    <div class="stat-card"><div class="stat-label">Wartość talonu</div><div class="stat-value gold" id="stat-value">—</div><div class="stat-sub">PLN / talon</div></div>
+    <div class="stat-card"><div class="stat-label">Użytkownicy</div><div class="stat-value" id="stat-users">—</div><div class="stat-sub">zarejestrowanych</div></div>
+    <div class="stat-card"><div class="stat-label">Kapitalizacja</div><div class="stat-value" id="stat-cap">—</div><div class="stat-sub">PLN łącznie</div></div>
+  </div>
+
+  <div id="chart-section">
+    <div class="chart-header">
+      <div class="chart-title"><strong>HRB/PLN</strong> &nbsp;Historia wartości talonów</div>
+      <div class="chart-header-right">
+        <div class="live-label"><div class="live-dot"></div> LIVE</div>
+        <div class="countdown" id="countdown">odświeżenie za <strong id="countdown-sec">60</strong>s</div>
+        <div class="gran-btns">
+          <button class="gran-btn" data-gran="minute">1M</button>
+          <button class="gran-btn" data-gran="hour">1H</button>
+          <button class="gran-btn active" data-gran="day">1D</button>
+          <button class="gran-btn" data-gran="week">1W</button>
+        </div>
+      </div>
+    </div>
+    <div id="chart-wrap">
+      <canvas id="chart" height="300"></canvas>
+      <div id="chart-tooltip"></div>
+    </div>
+    <div id="ohlc-legend">
+      <span class="ohlc-o">O <strong id="ohlc-o">—</strong></span>
+      <span class="ohlc-h">H <strong id="ohlc-h">—</strong></span>
+      <span class="ohlc-l">L <strong id="ohlc-l">—</strong></span>
+      <span class="ohlc-c">C <strong id="ohlc-c">—</strong></span>
+      <span style="color:var(--muted);margin-left:auto;font-size:11px" id="chart-time-label"></span>
+    </div>
+  </div>
+
+  <div id="my-section" class="hidden">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+      <div>
+        <div class="stat-label" style="margin-bottom:8px">Twoje talony</div>
+        <div class="my-big" id="my-tokens">0</div>
+        <div class="my-sub" id="my-value-info">wartość: — PLN</div>
+        <div class="stat-label">Twój udział w puli</div>
+        <div class="progress-bar-wrap" style="width:260px;margin-top:8px"><div class="progress-bar" id="my-progress" style="width:0%"></div></div>
+        <div class="progress-label" id="my-pct">0.00% całości</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-section" class="hidden">
+    <div class="panel-head" style="background:var(--bg2);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:14px 20px">⚙ PANEL ADMINISTRATORA</div>
+    <div class="admin-grid" style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;background:var(--bg2);padding:20px">
+      <div>
+        <div class="panel-head" style="background:var(--bg3);border-radius:6px;margin-bottom:12px;padding:10px 14px">Łączna pula talonów</div>
+        <div class="form-row"><label>Nowa liczba talonów</label><input type="number" id="admin-total" min="0" placeholder="np. 1000"/></div>
+        <button class="btn btn-outline btn-sm" onclick="adminSetTotal()">Ustaw pulę</button>
+        <div class="msg" id="msg-total"></div>
+      </div>
+      <div>
+        <div class="panel-head" style="background:var(--bg3);border-radius:6px;margin-bottom:12px;padding:10px 14px">Wartość talonu (PLN)</div>
+        <div class="form-row"><label>Nowa wartość</label><input type="number" id="admin-val" min="0" step="0.01" placeholder="np. 5.00"/></div>
+        <button class="btn btn-gold btn-sm" onclick="adminSetValue()">Ustaw wartość → zapisze do historii</button>
+        <div class="msg" id="msg-val"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="users-table-section" class="hidden">
+    <div class="panel-head" style="padding:14px 20px">Użytkownicy</div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>#</th><th>Użytkownik</th><th>Tokeny</th><th>Zmiana</th><th>Notatka</th><th>Akcja</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="log-section" class="hidden">
+    <div class="panel-head" style="padding:14px 20px">Historia zmian tokenów</div>
+    <div id="log-body"></div>
+  </div>
+
+  <div id="cols">
+    <div class="panel">
+      <div class="panel-head">O platformie</div>
+      <div class="panel-body" style="color:var(--muted2);font-size:14px;line-height:1.7">
+        <p style="margin-bottom:12px">Witaj na giełdzie talonów herbaciarnianych. Śledź wartość swoich talonów w czasie rzeczywistym, analizuj historię kursów i zarządzaj swoim portfelem.</p>
+        <p style="color:var(--muted);font-size:13px">Zarejestruj się, aby zobaczyć swoje tokeny i ich udział w całej puli.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">Szybkie logowanie</div>
+      <div class="panel-body">
+        <div class="form-row"><label>Nazwa użytkownika</label><input type="text" id="quick-user" placeholder="użytkownik"/></div>
+        <div class="form-row"><label>Hasło</label><input type="password" id="quick-pass" placeholder="••••••"/></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="quickLogin()">Zaloguj</button>
+          <button class="btn btn-outline" onclick="openModal('reg')">Rejestracja →</button>
+        </div>
+        <div class="msg" id="msg-quick"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>Konto</h2>
+    <div class="modal-tabs">
+      <div class="modal-tab active" id="tab-login" onclick="switchTab('login')">Logowanie</div>
+      <div class="modal-tab" id="tab-reg" onclick="switchTab('reg')">Rejestracja</div>
+    </div>
+    <div id="form-login">
+      <div class="form-row"><label>Nazwa użytkownika</label><input type="text" id="m-user" placeholder="użytkownik"/></div>
+      <div class="form-row"><label>Hasło</label><input type="password" id="m-pass" placeholder="••••••"/></div>
+      <div class="form-actions"><button class="btn btn-primary" onclick="doLogin()">Zaloguj</button><button class="btn btn-outline" onclick="closeModal()">Anuluj</button></div>
+      <div class="msg" id="msg-login"></div>
+    </div>
+    <div id="form-reg" class="hidden">
+      <div class="form-row"><label>Nazwa użytkownika</label><input type="text" id="r-user" placeholder="min. 3 znaki"/></div>
+      <div class="form-row"><label>Hasło</label><input type="password" id="r-pass" placeholder="min. 4 znaki"/></div>
+      <div class="form-actions"><button class="btn btn-primary" onclick="doRegister()">Zarejestruj</button><button class="btn btn-outline" onclick="closeModal()">Anuluj</button></div>
+      <div class="msg" id="msg-reg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════ STATE ══════════
+let currentUser = null;
+let currentGran = 'day';
+let historyData = [];
+let hoveredIdx = -1;
+let countdownSec = 60;
+let countdownTimer = null;
+
+// ══════════ INIT ══════════
+window.addEventListener('DOMContentLoaded', async () => {
+  await checkAuth();
+  await loadStats();
+  await loadChart();
+  startCountdown();
+  setInterval(loadStats, 15000);
+  window.addEventListener('resize', () => drawChart(historyData));
+});
+
+// ══════════ COUNTDOWN ══════════
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownSec = 60;
+  updateCountdownDisplay();
+  countdownTimer = setInterval(async () => {
+    countdownSec--;
+    if (countdownSec <= 0) {
+      countdownSec = 60;
+      await loadChart();
+      await loadStats();
+    }
+    updateCountdownDisplay();
+  }, 1000);
+}
+
+function updateCountdownDisplay() {
+  const el = document.getElementById('countdown-sec');
+  if (el) el.textContent = countdownSec;
+}
+
+// ══════════ AUTH ══════════
+async function checkAuth() {
+  const r = await fetch('/auth/me').then(r=>r.json());
+  currentUser = r.loggedIn ? r : null;
+  renderAuthUI();
+}
+
+function renderAuthUI() {
+  const loggedIn = !!currentUser;
+  const isAdmin = loggedIn && currentUser.role === 'admin';
+  document.getElementById('btn-open-modal').classList.toggle('hidden', loggedIn);
+  document.getElementById('btn-logout').classList.toggle('hidden', !loggedIn);
+  document.getElementById('nav-user-info').classList.toggle('hidden', !loggedIn);
+  document.getElementById('cols').classList.toggle('hidden', loggedIn);
+  if (loggedIn) {
+    document.getElementById('nav-username').textContent = currentUser.username;
+    document.getElementById('my-section').classList.toggle('hidden', isAdmin);
+    document.getElementById('admin-section').classList.toggle('hidden', !isAdmin);
+    document.getElementById('users-table-section').classList.toggle('hidden', !isAdmin);
+    document.getElementById('log-section').classList.toggle('hidden', !isAdmin);
+    if (!isAdmin) renderMyTokens();
+    if (isAdmin) { loadUsers(); loadLog(); }
+  } else {
+    ['my-section','admin-section','users-table-section','log-section'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById('m-user').value.trim();
+  const password = document.getElementById('m-pass').value;
+  const r = await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}).then(r=>r.json());
+  if (r.ok) { closeModal(); await checkAuth(); await loadStats(); }
+  else showMsg('msg-login', r.msg, false);
+}
+
+async function quickLogin() {
+  const username = document.getElementById('quick-user').value.trim();
+  const password = document.getElementById('quick-pass').value;
+  const r = await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}).then(r=>r.json());
+  if (r.ok) { await checkAuth(); await loadStats(); }
+  else showMsg('msg-quick', r.msg, false);
+}
+
+async function doRegister() {
+  const username = document.getElementById('r-user').value.trim();
+  const password = document.getElementById('r-pass').value;
+  const r = await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}).then(r=>r.json());
+  if (r.ok) { showMsg('msg-reg','Zarejestrowano! Możesz się zalogować.',true); switchTab('login'); }
+  else showMsg('msg-reg', r.msg, false);
+}
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  await fetch('/auth/logout',{method:'POST'});
+  currentUser = null; renderAuthUI();
+});
+
+// ══════════ STATS ══════════
+async function loadStats() {
+  const s = await fetch('/api/stats').then(r=>r.json());
+  document.getElementById('stat-total').textContent = s.total.toLocaleString('pl-PL');
+  document.getElementById('stat-value').textContent = s.value.toFixed(2)+' zł';
+  document.getElementById('stat-users').textContent = s.users;
+  document.getElementById('stat-cap').textContent = (s.total*s.value).toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł';
+  updateTicker(s);
+  if (currentUser && currentUser.role !== 'admin') renderMyTokens();
+}
+
+function updateTicker(s) {
+  const txt = `HRB/PLN <strong>${s.value.toFixed(2)} zł</strong> &nbsp;|&nbsp; Pula: <strong>${s.total}</strong> &nbsp;|&nbsp; Kapitalizacja: <strong>${(s.total*s.value).toFixed(2)} zł</strong> &nbsp;|&nbsp; Użytkownicy: <strong>${s.users}</strong>`;
+  document.getElementById('ticker-inner').innerHTML = `<span>${txt} &nbsp;&nbsp;&nbsp;&nbsp; ${txt}</span>`;
+}
+
+async function renderMyTokens() {
+  const d = await fetch('/api/my-tokens').then(r=>r.json());
+  document.getElementById('my-tokens').textContent = d.tokens;
+  document.getElementById('my-value-info').textContent = `wartość: ${(d.tokens*d.value).toFixed(2)} zł`;
+  document.getElementById('my-progress').style.width = d.pct+'%';
+  document.getElementById('my-pct').textContent = d.pct+'% całości puli';
+}
+
+// ══════════ CHART ══════════
+document.querySelectorAll('.gran-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.gran-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentGran = b.dataset.gran;
+    startCountdown();
+    loadChart();
+  });
+});
+
+async function loadChart() {
+  const rows = await fetch(`/api/history?gran=${currentGran}`).then(r=>r.json());
+  historyData = rows;
+  drawChart(rows);
+}
+
+function formatTimestamp(ts, gran) {
+  const d = new Date(ts * 1000);
+  const pad = n => String(n).padStart(2,'0');
+  if (gran === 'minute') return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (gran === 'hour')   return `${d.getDate()}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:00`;
+  if (gran === 'day')    return `${d.getDate()}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
+  if (gran === 'week')   return `T${Math.ceil((d - new Date(d.getFullYear(),0,1))/604800000)} ${d.getFullYear()}`;
+  return '';
+}
+
+function drawChart(rows) {
+  const canvas = document.getElementById('chart');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth;
+  const H = 300;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (!rows || rows.length === 0) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Brak danych — zmień wartość talonu w panelu admina, aby pojawił się wykres', W/2, H/2);
+    return;
+  }
+
+  const PAD = { top: 20, bottom: 38, left: 12, right: 68 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const allVals = rows.flatMap(r => [r.open_val, r.close_val, r.min_val, r.max_val].filter(v=>v!=null));
+  let minV = Math.min(...allVals);
+  let maxV = Math.max(...allVals);
+  const pad = (maxV - minV) * 0.15 || 0.5;
+  minV -= pad; maxV += pad;
+  const valRange = maxV - minV;
+  const toY = v => PAD.top + cH - ((v - minV) / valRange) * cH;
+
+  // grid
+  const gridN = 5;
+  for (let i = 0; i <= gridN; i++) {
+    const y = PAD.top + (cH / gridN) * i;
+    ctx.strokeStyle = '#1a2035'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W - PAD.right, y); ctx.stroke();
+    const val = maxV - (valRange / gridN) * i;
+    ctx.fillStyle = '#475569'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'left';
+    ctx.fillText(val.toFixed(2) + ' zł', W - PAD.right + 6, y + 4);
+  }
+
+  // candles
+  const n = rows.length;
+  const step = cW / Math.max(n, 1);
+  const candleW = Math.max(1.5, Math.min(16, step * 0.65));
+
+  rows.forEach((r, i) => {
+    const x = PAD.left + i * step + step / 2;
+    const open = r.open_val ?? r.close_val;
+    const close = r.close_val;
+    const high = r.max_val ?? close;
+    const low = r.min_val ?? close;
+    const isGreen = close >= open;
+    const color = isGreen ? '#22c55e' : '#ef4444';
+
+    if (hoveredIdx === i) {
+      ctx.fillStyle = isGreen ? '#22c55e18' : '#ef444418';
+      ctx.fillRect(x - step/2, PAD.top, step, cH);
+      ctx.strokeStyle = isGreen ? '#22c55e44' : '#ef444444';
+      ctx.lineWidth = 1; ctx.setLineDash([2,2]);
+      ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, toY(high)); ctx.lineTo(x, toY(low)); ctx.stroke();
+
+    const bodyTop = toY(Math.max(open, close));
+    const bodyBot = toY(Math.min(open, close));
+    const bodyH = Math.max(1.5, bodyBot - bodyTop);
+    ctx.fillStyle = color;
+    ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
+  });
+
+  // close line overlay
+  if (rows.length > 1) {
+    ctx.beginPath();
+    rows.forEach((r, i) => {
+      const x = PAD.left + i * step + step / 2;
+      const y = toY(r.close_val);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#00c89633'; ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // X labels
+  ctx.fillStyle = '#475569'; ctx.font = '10px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+  const labelStep = Math.max(1, Math.floor(n / 8));
+  rows.forEach((r, i) => {
+    if (i % labelStep !== 0) return;
+    const x = PAD.left + i * step + step / 2;
+    ctx.fillText(formatTimestamp(r.open_ts, currentGran), x, H - 8);
+  });
+
+  // update OHLC legend (last candle if not hovering)
+  const ref = hoveredIdx >= 0 ? rows[hoveredIdx] : rows[rows.length - 1];
+  if (ref) {
+    document.getElementById('ohlc-o').textContent = (ref.open_val ?? ref.close_val)?.toFixed(2) ?? '—';
+    document.getElementById('ohlc-h').textContent = ref.max_val?.toFixed(2) ?? '—';
+    document.getElementById('ohlc-l').textContent = ref.min_val?.toFixed(2) ?? '—';
+    document.getElementById('ohlc-c').textContent = ref.close_val?.toFixed(2) ?? '—';
+    const label = { minute:'1M', hour:'1H', day:'1D', week:'1W' }[currentGran];
+    document.getElementById('chart-time-label').textContent = `widok: ${label} · ${formatTimestamp(ref.open_ts, currentGran)}`;
+  }
+}
+
+// chart mouse interaction
+(function() {
+  const canvas = document.getElementById('chart');
+  const tooltip = document.getElementById('chart-tooltip');
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const W = canvas.clientWidth;
+    const n = historyData.length;
+    if (!n) return;
+    const PAD_L = 12, PAD_R = 68;
+    const step = (W - PAD_L - PAD_R) / Math.max(n, 1);
+    const idx = Math.floor((x - PAD_L) / step);
+    if (idx >= 0 && idx < n) {
+      if (idx !== hoveredIdx) { hoveredIdx = idx; drawChart(historyData); }
+      const r = historyData[idx];
+      const isGreen = r.close_val >= (r.open_val ?? r.close_val);
+      tooltip.style.display = 'block';
+      tooltip.style.left = Math.min(e.clientX - rect.left + 14, W - 180) + 'px';
+      tooltip.style.top = (e.clientY - rect.top - 60) + 'px';
+      tooltip.innerHTML =
+        `<div style="color:var(--muted);margin-bottom:4px">${formatTimestamp(r.open_ts, currentGran)}</div>` +
+        `<div>O: <span style="color:var(--text)">${(r.open_val??r.close_val).toFixed(2)} zł</span></div>` +
+        `<div>H: <span style="color:var(--green)">${r.max_val?.toFixed(2)} zł</span></div>` +
+        `<div>L: <span style="color:var(--red)">${r.min_val?.toFixed(2)} zł</span></div>` +
+        `<div>C: <span style="color:${isGreen?'var(--green)':'var(--red)'}">${r.close_val?.toFixed(2)} zł</span></div>`;
+    }
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    hoveredIdx = -1;
+    tooltip.style.display = 'none';
+    drawChart(historyData);
+  });
+})();
+
+// ══════════ ADMIN ══════════
+async function adminSetTotal() {
+  const total = document.getElementById('admin-total').value;
+  const r = await fetch('/api/admin/set-total',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({total})}).then(r=>r.json());
+  showMsg('msg-total', r.ok ? `Ustawiono pulę: ${total} talonów` : r.msg, r.ok);
+  if (r.ok) await loadStats();
+}
+
+async function adminSetValue() {
+  const value = document.getElementById('admin-val').value;
+  const r = await fetch('/api/admin/set-value',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})}).then(r=>r.json());
+  showMsg('msg-val', r.ok ? `Wartość: ${parseFloat(value).toFixed(2)} zł → zapisano w historii!` : r.msg, r.ok);
+  if (r.ok) { await loadStats(); await loadChart(); startCountdown(); }
+}
+
+async function loadUsers() {
+  const users = await fetch('/api/admin/users').then(r=>r.json());
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:20px">Brak użytkowników</td></tr>'; return; }
+  users.forEach((u,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:var(--muted)">${i+1}</td>
+      <td class="td-name">${u.username}</td>
+      <td class="td-tokens">${u.tokens}</td>
+      <td><input class="delta-input" id="delta-${u.id}" type="number" placeholder="±0"/></td>
+      <td><input class="delta-input" id="note-${u.id}" type="text" placeholder="notatka" style="width:110px"/></td>
+      <td class="td-actions">
+        <button class="btn btn-primary btn-sm" onclick="changeTokens(${u.id},1)">+ Dodaj</button>
+        <button class="btn btn-danger btn-sm" onclick="changeTokens(${u.id},-1)">− Odejmij</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function changeTokens(userId, sign) {
+  const delta = parseInt(document.getElementById(`delta-${userId}`).value) || 0;
+  const note = document.getElementById(`note-${userId}`).value;
+  const r = await fetch('/api/admin/set-tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId, delta: Math.abs(delta) * sign, note})}).then(r=>r.json());
+  if (r.ok) { loadUsers(); loadLog(); loadStats(); }
+}
+
+async function loadLog() {
+  const rows = await fetch('/api/admin/log').then(r=>r.json());
+  const body = document.getElementById('log-body');
+  if (!rows.length) { body.innerHTML = '<div class="log-row" style="color:var(--muted)">Brak wpisów</div>'; return; }
+  body.innerHTML = rows.map(r => {
+    const d = new Date(r.ts*1000);
+    const dateStr = `${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const cls = r.delta >= 0 ? 'pos' : 'neg';
+    return `<div class="log-row">
+      <span style="color:var(--muted)">${dateStr}</span>
+      <span style="color:var(--text)"><strong>${r.target_name}</strong></span>
+      <span class="log-delta ${cls}">${r.delta>=0?'+':''}${r.delta} talonów</span>
+      <span style="color:var(--muted2)">${r.note||''}</span>
+    </div>`;
+  }).join('');
+}
+
+// ══════════ UI HELPERS ══════════
+function openModal(tab='login') { document.getElementById('modal').classList.add('open'); switchTab(tab); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('btn-open-modal').addEventListener('click', () => openModal());
+function switchTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-reg').classList.toggle('active', tab==='reg');
+  document.getElementById('form-login').classList.toggle('hidden', tab!=='login');
+  document.getElementById('form-reg').classList.toggle('hidden', tab!=='reg');
+}
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = 'msg '+(ok?'ok':'err');
+  setTimeout(() => { el.className = 'msg'; }, 4000);
+}
+document.getElementById('m-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('r-pass').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+document.getElementById('quick-pass').addEventListener('keydown', e => { if(e.key==='Enter') quickLogin(); });
+</script>
+</body>
+</html>
